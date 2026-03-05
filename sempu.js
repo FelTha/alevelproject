@@ -8,6 +8,82 @@ const GLOBWIDTH = 16 // change these if necessary
 const GLOBHEIGHT = 9 // change these if necessary
 
 
+function getSrc(code) {
+  const filePath = "images/"
+  const srcs = {
+    // floors
+    "--": "floors/floor1",
+    // walls
+    "01": "walls/wall1",
+      "1a": "walls/wallcorner1",
+      "1b": "walls/wallcorner2",
+      "1c": "walls/wallcorner3",
+      "1d": "walls/wallcorner4",
+      "1e": "walls/wallbump1",
+      "1f": "walls/wallbump2",
+      "1g": "walls/wallbump3",
+      "1h": "walls/wallbump4",
+    // icons
+    "02": "icons/crate",
+    "3a": "icons/bottombunv2",
+    "3b": "icons/pattyv2",
+    "3c": "icons/topbunv2",
+    "04": "icons/plate"
+  }
+  
+  if (typeof code === "string") { // passed a code
+    return `${filePath}${srcs[code]}.png`
+  } else if (typeof code === "object") { // passed an array of codes
+    const v = []
+    const len = code.length
+    for (var i = 0; i < len; i++) {
+      v.push(`${filePath}${srcs[code[i]]}.png`)
+    }
+    return v
+  } else if (typeof code === "boolean" && code === true) { // it wants every complete src
+    const arr = []
+    for (const [_, v] of Object.entries(srcs)) {
+      arr.push(`${filePath}${v}.png`)
+    }
+    return arr
+  }
+}
+
+/*
+asset key:
+--    - empty
+01    - wall
+1a-1d - wall corners 1-4
+1e-1h - wall bumps 1-4
+02    - crate
+3a-3c - burger parts (bottom to top)
+04    - plate
+*/
+
+// preload assets
+const imageObjects = {} // will fill with all the relevant keys and Image() objects
+
+function preloadAssets(callback) {
+  const urlArr = getSrc(true) // returns all file paths
+  urlArr.push("images/icons/fork.png") // add in the cursor image, so literally every image is in the imageObjects dictionary
+
+  var loaded = 0
+  
+  urlArr.forEach(url => {
+    const img = new Image()
+
+    img.onload = () => {
+      loaded++
+      if (loaded === urlArr.length) callback()
+    }
+
+    // define once and only once!
+    img.src = url
+    imageObjects[url] = img
+  })
+}
+
+
 
 var renderedOnce = false
 
@@ -217,47 +293,6 @@ document.addEventListener("mouseup", (e) => {
 
 
 
-function getSrc(code) {
-  const filePath = "images/"
-  const srcs = {
-    // floors
-    "--": "floors/floor1",
-    // walls
-    "01": "walls/wall1",
-      "1a": "walls/wallcorner1",
-      "1b": "walls/wallcorner2",
-      "1c": "walls/wallcorner3",
-      "1d": "walls/wallcorner4",
-      "1e": "walls/wallbump1",
-      "1f": "walls/wallbump2",
-      "1g": "walls/wallbump3",
-      "1h": "walls/wallbump4",
-    // icons
-    "02": "icons/crate",
-    "3a": "icons/bottombunv2",
-    "3b": "icons/pattyv2",
-    "3c": "icons/topbunv2",
-    "04": "icons/plate"
-  }
-  
-  if (typeof code === "string") { // passed a code
-    return `${filePath}${srcs[code]}.png`
-  } else if (typeof code === "object") { // passed an array of codes
-    const v = []
-    const len = code.length
-    for (var i = 0; i < len; i++) {
-      v.push(`${filePath}${srcs[code[i]]}.png`)
-    }
-    return v
-  } else if (typeof code === "boolean" && code === true) { // it wants every complete src
-    const arr = []
-    for (const [_, v] of Object.entries(srcs)) {
-      arr.push(`${filePath}${v}.png`)
-    }
-    return arr
-  }
-}
-
 /*
 asset key:
 --    - empty
@@ -312,8 +347,8 @@ const iconArrs = {
     "--","--","3a","--","--","--","--","--","--","--","--","--","--","--","--","--",
     "--","--","--","--","--","--","--","--","--","--","--","3c","--","--","--","--",
     "--","--","--","--","--","--","--","--","--","--","--","--","--","--","--","--",
-    "--","--","--","--","--","--","--","--","--","--","--","--","02","--","--","--",
     "--","--","--","3b","--","--","--","--","--","--","--","--","--","--","--","--",
+    "--","--","--","--","--","--","--","--","--","--","--","--","02","--","--","--",
     "--","--","--","--","--","--","--","--","--","--","--","--","--","--","--","--",
     "--","--","--","--","--","--","--","--","--","--","--","--","--","--","--","--"
   ]
@@ -333,16 +368,12 @@ function renderBaseLayer() {
       
       var code = levelArrs[2][col*GLOBWIDTH + row]
       
-      var img = new Image()
-      var src = getSrc(code)
-      img.src = src
-      img.id = code
+      var img = imageObjects[getSrc(code)]
       
       // draw the floor first, if necessary
       const partialAssets = ["1a","1b","1c","1d","1e","1f","1g","1h","04"]
       if (partialAssets.includes(code)) {
-        var tempImg = new Image()
-        tempImg.src = getSrc("--")
+        var tempImg = imageObjects[getSrc("--")]
         ctx.drawImage(tempImg,row*twidth,col*theight,twidth,theight)
       }
       
@@ -357,15 +388,13 @@ function renderIconLayer() {
   for (var col = 0; col < GLOBHEIGHT; col++) {
     for (var row = 0; row < GLOBWIDTH; row++) {
       
-      code = iconLayer[col*GLOBWIDTH + row]
+      var code = iconLayer[col*GLOBWIDTH + row]
       
       // on the plate
-      if (col*GLOBWIDTH + row == plateInfo.tilePos) {
-        for (var i = 0; i < orderLen; i++) {
+      if (col*GLOBWIDTH + row === plateInfo.tilePos) {
+        for (var i = 0; i < plateInfo.list.length; i++) {
           code = plateInfo.list[i]
-          img = new Image()
-          img.src = getSrc(code)
-          img.id = code
+          var img = imageObjects[getSrc(code)]
           
           topCtx.drawImage(img,row*twidth,col*theight,twidth,theight)
         }
@@ -373,11 +402,8 @@ function renderIconLayer() {
       
       if (code === "--") continue
       
-      img = new Image()
-      src = getSrc(code)
-      img.src = src
-      img.id = code
-      
+      var img = imageObjects[getSrc(code)]
+
       topCtx.drawImage(img,row*twidth,col*theight,twidth,theight)
     }
   }
@@ -397,10 +423,7 @@ function renderCursorLayer() {
     code = heldItem.code
     
     // get src of icon
-    img = new Image()
-    src = getSrc(code)
-    img.src = src
-    img.id = code
+    var img = imageObjects[getSrc(code)]
     
     // centre icon instead of putting it at top left
     var iconPos = {x: mPos.x-twidth/2, y: mPos.y-theight/2}
@@ -410,14 +433,15 @@ function renderCursorLayer() {
   
   // render cursor (on TOP of icon)
   
-  var cursor = new Image()
-  cursor.src = "images/icons/fork.png"
+  var cursor = imageObjects["images/icons/fork.png"]
   
   cursorCtx.drawImage(cursor,mPos.x,mPos.y,0.8*theight,0.8*twidth)
   
   document.body.classList.add("cursorHideClass")
 }
 
-renderBaseLayer()
-renderIconLayer()
-renderedOnce = true
+preloadAssets(() => {
+  renderBaseLayer()
+  renderIconLayer()
+  renderedOnce = true
+})
